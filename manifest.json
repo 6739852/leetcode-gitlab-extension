@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "LeetCode to GitLab",
+  "version": "1.0",
+  "description": "העלה פתרונות LeetCode אוטומטית ל-GitLab",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "notifications",
+    "https://leetcode.com/*",
+    "https://gitlab.com/*",
+    "https://*/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://leetcode.com/problems/*"],
+      "js": ["content.js"]
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "LeetCode to GitLab"
+  }
+}

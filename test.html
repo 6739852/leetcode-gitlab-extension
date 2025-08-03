@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html dir="rtl">
+<head>
+    <meta charset="utf-8">
+    <title>בדיקת תוסף LeetCode to GitLab</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            direction: rtl;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test-section {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .success { background-color: #d4edda; }
+        .error { background-color: #f8d7da; }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        .code-block {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: monospace;
+            direction: ltr;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <h1>בדיקת תוסף LeetCode to GitLab</h1>
+    
+    <div class="test-section">
+        <h3>בדיקה 1: זיהוי אלמנטים</h3>
+        <p>בדיקה האם התוסף יכול לזהות את האלמנטים הנדרשים בעמוד:</p>
+        <button onclick="testElementDetection()">בדוק זיהוי אלמנטים</button>
+        <div id="element-results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>בדיקה 2: חילוץ נתונים</h3>
+        <p>בדיקה של חילוץ נתוני בעיה מדומים:</p>
+        
+        <!-- אלמנטים מדומים לבדיקה -->
+        <div style="display: none;">
+            <h1 data-cy="question-title">Two Sum</h1>
+            <div class="monaco-editor">
+                <textarea>def twoSum(nums, target):
+    for i in range(len(nums)):
+        for j in range(i+1, len(nums)):
+            if nums[i] + nums[j] == target:
+                return [i, j]</textarea>
+            </div>
+            <div class="ant-select-selection-item">Python3</div>
+            <div data-e2e-locator="submission-result">Accepted</div>
+        </div>
+        
+        <button onclick="testDataExtraction()">בדוק חילוץ נתונים</button>
+        <div id="extraction-results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>בדיקה 3: הגדרות אחסון</h3>
+        <p>בדיקה של שמירה וטעינה של הגדרות:</p>
+        <button onclick="testStorage()">בדוק אחסון</button>
+        <div id="storage-results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>בדיקה 4: יצירת קובץ</h3>
+        <p>בדיקה של יצירת תוכן קובץ:</p>
+        <button onclick="testFileCreation()">בדוק יצירת קובץ</button>
+        <div id="file-results"></div>
+    </div>
+
+    <script>
+        function testElementDetection() {
+            const results = document.getElementById('element-results');
+            let html = '<h4>תוצאות זיהוי אלמנטים:</h4>';
+            
+            // בדיקת כותרת
+            const titleSelectors = [
+                '[data-cy="question-title"]',
+                'h1',
+                '.css-v3d350'
+            ];
+            
+            let titleFound = false;
+            titleSelectors.forEach(selector => {
+                const element = document.querySelector(selector);
+                if (element) {
+                    html += `<p>✅ נמצא כותרת: ${selector}</p>`;
+                    titleFound = true;
+                } else {
+                    html += `<p>❌ לא נמצא: ${selector}</p>`;
+                }
+            });
+            
+            results.innerHTML = html;
+        }
+        
+        function testDataExtraction() {
+            const results = document.getElementById('extraction-results');
+            
+            // חיקוי הפונקציה מ-content.js
+            const title = document.querySelector('[data-cy="question-title"]')?.textContent || 'Test Problem';
+            const code = document.querySelector('.monaco-editor textarea')?.value || 'test code';
+            const language = document.querySelector('.ant-select-selection-item')?.textContent || 'Python3';
+            
+            const problemData = {
+                title,
+                code,
+                language,
+                url: window.location.href,
+                timestamp: new Date().toISOString()
+            };
+            
+            results.innerHTML = `
+                <h4>נתונים שחולצו:</h4>
+                <div class="code-block">
+                    <strong>כותרת:</strong> ${problemData.title}<br>
+                    <strong>שפה:</strong> ${problemData.language}<br>
+                    <strong>קוד:</strong><br>${problemData.code}<br>
+                    <strong>זמן:</strong> ${problemData.timestamp}
+                </div>
+            `;
+        }
+        
+        function testStorage() {
+            const results = document.getElementById('storage-results');
+            
+            if (typeof chrome !== 'undefined' && chrome.storage) {
+                // בדיקת שמירה
+                const testData = {
+                    gitlabUrl: 'https://gitlab.com',
+                    gitlabToken: 'test-token',
+                    gitlabProjectId: '12345'
+                };
+                
+                chrome.storage.sync.set(testData, () => {
+                    chrome.storage.sync.get(['gitlabUrl', 'gitlabToken', 'gitlabProjectId'], (data) => {
+                        results.innerHTML = `
+                            <h4>בדיקת אחסון:</h4>
+                            <p>✅ שמירה וטעינה עובדות</p>
+                            <div class="code-block">
+                                URL: ${data.gitlabUrl}<br>
+                                Token: ${data.gitlabToken}<br>
+                                Project ID: ${data.gitlabProjectId}
+                            </div>
+                        `;
+                    });
+                });
+            } else {
+                results.innerHTML = '<p>❌ Chrome storage API לא זמין (רק בתוסף)</p>';
+            }
+        }
+        
+        function testFileCreation() {
+            const results = document.getElementById('file-results');
+            
+            const problemData = {
+                title: 'Two Sum',
+                code: 'def twoSum(nums, target):\n    return []',
+                language: 'Python3',
+                url: 'https://leetcode.com/problems/two-sum/',
+                timestamp: new Date().toISOString()
+            };
+            
+            // חיקוי יצירת קובץ
+            const fileName = problemData.title
+                .replace(/[^\w\s-]/g, '')
+                .replace(/\s+/g, '-')
+                .toLowerCase() + '.py';
+            
+            const fileContent = `/*
+ * בעיה: ${problemData.title}
+ * קישור: ${problemData.url}
+ * שפה: ${problemData.language}
+ * תאריך פתרון: ${new Date(problemData.timestamp).toLocaleDateString('he-IL')}
+ */
+
+${problemData.code}`;
+            
+            results.innerHTML = `
+                <h4>קובץ שנוצר:</h4>
+                <p><strong>שם קובץ:</strong> ${fileName}</p>
+                <div class="code-block">${fileContent}</div>
+            `;
+        }
+    </script>
+</body>
+</html>
