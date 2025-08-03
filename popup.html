@@ -66,26 +66,26 @@
 </head>
 <body>
     <div class="header">
-        <h2>LeetCode to GitLab</h2>
+        <h2>LeetCode to GitHub</h2>
         <p>הגדרות התוסף</p>
     </div>
     
     <div class="form-group">
-        <label for="gitlabUrl">כתובת GitLab:</label>
-        <input type="text" id="gitlabUrl" placeholder="https://gitlab.com">
-        <div class="help">השאר ריק עבור gitlab.com</div>
+        <label for="githubOwner">שם משתמש GitHub:</label>
+        <input type="text" id="githubOwner" placeholder="username">
+        <div class="help">שם המשתמש שלך ב-GitHub</div>
     </div>
     
     <div class="form-group">
-        <label for="gitlabToken">Personal Access Token:</label>
-        <input type="password" id="gitlabToken" placeholder="glpat-xxxxxxxxxxxxxxxxxxxx">
-        <div class="help">יצור ב-GitLab Settings > Access Tokens</div>
+        <label for="githubRepo">שם Repository:</label>
+        <input type="text" id="githubRepo" placeholder="leetcode-solutions">
+        <div class="help">שם ה-repository שבו תרצה לשמור את הפתרונות</div>
     </div>
     
     <div class="form-group">
-        <label for="gitlabProjectId">מזהה פרויקט:</label>
-        <input type="text" id="gitlabProjectId" placeholder="12345">
-        <div class="help">מספר הפרויקט מהכתובת או מעמוד הפרויקט</div>
+        <label for="githubToken">Personal Access Token:</label>
+        <input type="password" id="githubToken" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+        <div class="help">יצור ב-GitHub Settings > Developer settings > Personal access tokens</div>
     </div>
     
     <button id="saveBtn">שמור הגדרות</button>

@@ -1,146 +1,231 @@
-// זיהוי הצלחת פתרון ב-LeetCode
 let isSubmissionSuccessful = false;
+let uploadButton = null;
 
-// מאזין לשינויים בעמוד
-const observer = new MutationObserver((mutations) => {
-  mutations.forEach((mutation) => {
-    if (mutation.type === 'childList') {
-      checkForSuccessfulSubmission();
+// מעקב אחר שינויים בעמוד
+const observer = new MutationObserver(() => {
+  setTimeout(checkForSuccess, 1000);
+});
+
+if (document.body) {
+  observer.observe(document.body, { childList: true, subtree: true });
+}
+
+function checkForSuccess() {
+  if (!window.location.href.includes('leetcode.com/problems/')) return;
+  
+  const pageText = document.body.textContent || '';
+  const hasAccepted = pageText.includes('Accepted') && !pageText.includes('Not Accepted');
+  
+  if (hasAccepted && !isSubmissionSuccessful) {
+    isSubmissionSuccessful = true;
+    showButton();
+  }
+}
+
+function showButton() {
+  if (uploadButton) uploadButton.remove();
+  
+  uploadButton = document.createElement('button');
+  uploadButton.innerHTML = '🎉 Upload to GitHub';
+  uploadButton.style.position = 'fixed';
+  uploadButton.style.bottom = '20px';
+  uploadButton.style.right = '20px';
+  uploadButton.style.zIndex = '9999';
+  uploadButton.style.background = '#28a745';
+  uploadButton.style.color = 'white';
+  uploadButton.style.border = 'none';
+  uploadButton.style.padding = '15px 20px';
+  uploadButton.style.borderRadius = '25px';
+  uploadButton.style.cursor = 'pointer';
+  uploadButton.style.fontSize = '16px';
+  uploadButton.style.fontWeight = 'bold';
+  
+  uploadButton.onclick = () => {
+    uploadButton.innerHTML = '⏳ Uploading...';
+    uploadButton.disabled = true;
+    uploadCode();
+  };
+  
+  document.body.appendChild(uploadButton);
+  
+  setTimeout(() => {
+    if (uploadButton) {
+      uploadButton.remove();
+      uploadButton = null;
     }
-  });
-});
+  }, 30000);
+}
 
-// התחלת המעקב
-observer.observe(document.body, {
-  childList: true,
-  subtree: true
-});
+function uploadCode() {
+  const data = getProblemData();
+  
+  if (data && data.code && data.code.length > 5) {
+    chrome.runtime.sendMessage({
+      action: 'uploadToGithub',
+      data: data
+    }, (response) => {
+      if (response && response.success) {
+        showResult(true);
+      } else {
+        showResult(false);
+      }
+    });
+  } else {
+    showResult(false);
+  }
+}
 
-function checkForSuccessfulSubmission() {
-  // חיפוש אחר הודעת הצלחה - מספר אפשרויות
-  const successSelectors = [
-    '[data-e2e-locator="submission-result"]',
-    '.text-green-s',
-    '.text-success',
-    '[data-cy="submission-result"]'
+function showResult(success) {
+  if (!uploadButton) return;
+  
+  if (success) {
+    uploadButton.innerHTML = '✅ Success!';
+    uploadButton.style.background = '#28a745';
+  } else {
+    uploadButton.innerHTML = '❌ Failed';
+    uploadButton.style.background = '#dc3545';
+  }
+  
+  setTimeout(() => {
+    if (uploadButton) {
+      uploadButton.remove();
+      uploadButton = null;
+    }
+  }, 3000);
+}
+
+function getProblemData() {
+  const title = getTitle();
+  const code = getCode();
+  const language = getLanguage(code);
+  
+  return {
+    title: title,
+    code: code,
+    language: language,
+    url: window.location.href,
+    timestamp: new Date().toISOString()
+  };
+}
+
+function getTitle() {
+  const titleElement = document.querySelector('h1') || 
+                      document.querySelector('[data-cy="question-title"]');
+  
+  if (titleElement && titleElement.textContent) {
+    return titleElement.textContent.trim();
+  }
+  
+  const urlParts = window.location.pathname.split('/');
+  const slug = urlParts[urlParts.indexOf('problems') + 1];
+  return slug ? slug.replace(/-/g, ' ') : 'Unknown Problem';
+}
+
+function getCode() {
+  console.log('Starting code extraction...');
+  
+  // שיטה 1: Monaco Editor
+  const monacoEditor = document.querySelector('.monaco-editor');
+  if (monacoEditor) {
+    console.log('Found Monaco editor');
+    
+    // נסה textarea
+    const textarea = monacoEditor.querySelector('textarea');
+    if (textarea && textarea.value) {
+      console.log('Code from textarea:', textarea.value.length, 'chars');
+      return textarea.value;
+    }
+    
+    // נסה Monaco API
+    if (window.monaco && window.monaco.editor) {
+      const editors = window.monaco.editor.getEditors();
+      if (editors && editors.length > 0) {
+        const code = editors[0].getValue();
+        if (code) {
+          console.log('Code from Monaco API:', code.length, 'chars');
+          return code;
+        }
+      }
+    }
+    
+    // נסה view lines
+    const lines = monacoEditor.querySelectorAll('.view-line');
+    if (lines.length > 0) {
+      const codeLines = [];
+      lines.forEach(line => {
+        const text = line.textContent || '';
+        codeLines.push(text);
+      });
+      const code = codeLines.join('\n').trim();
+      if (code && code.length > 10) {
+        console.log('Code from view lines:', code.length, 'chars');
+        return code;
+      }
+    }
+  }
+  
+  // שיטה 2: כל textarea בעמוד
+  const textareas = document.querySelectorAll('textarea');
+  for (const textarea of textareas) {
+    const text = textarea.value || '';
+    if (text && text.length > 10 && hasCodeKeywords(text)) {
+      console.log('Code from textarea:', text.length, 'chars');
+      return text;
+    }
+  }
+  
+  // שיטה 3: אלמנטי קוד
+  const codeElements = document.querySelectorAll('pre, code, [class*="code"]');
+  for (const element of codeElements) {
+    const text = element.textContent || '';
+    if (text && text.length > 20 && hasCodeKeywords(text)) {
+      console.log('Code from element:', text.length, 'chars');
+      return text;
+    }
+  }
+  
+  console.log('No code found');
+  return '';
+}
+
+function hasCodeKeywords(text) {
+  const keywords = [
+    'function', 'return', 'if (', 'for (', 'while (', 'class ',
+    'def ', 'import ', '#include', 'public ', 'private ',
+    'int ', 'string', 'void', 'const ', 'let ', 'var '
   ];
   
-  let successElement = null;
-  for (const selector of successSelectors) {
-    successElement = document.querySelector(selector);
-    if (successElement) break;
-  }
-  
-  // חיפוש טקסט "Accepted"
-  const acceptedElements = document.querySelectorAll('*');
-  let hasAccepted = false;
-  for (const el of acceptedElements) {
-    if (el.textContent && el.textContent.includes('Accepted')) {
-      hasAccepted = true;
-      break;
+  return keywords.some(keyword => text.includes(keyword));
+}
+
+function getLanguage(code) {
+  // חיפוש בממשק
+  const langElement = document.querySelector('.ant-select-selection-item');
+  if (langElement && langElement.textContent) {
+    const lang = langElement.textContent.trim();
+    if (lang && lang.length < 20) {
+      console.log('Language from UI:', lang);
+      return lang;
     }
   }
   
-  if ((successElement || hasAccepted) && !isSubmissionSuccessful) {
-    isSubmissionSuccessful = true;
-    console.log('פתרון מוצלח זוהה!');
-    
-    // חילוץ פרטי הבעיה
-    const problemData = extractProblemData();
-    
-    if (problemData) {
-      // שליחה ל-background script
-      chrome.runtime.sendMessage({
-        action: 'uploadToGitlab',
-        data: problemData
-      });
-    }
+  // זיהוי מהקוד
+  if (code) {
+    if (code.includes('#include') || code.includes('std::')) return 'C++';
+    if (code.includes('def ') || code.includes('import ')) return 'Python';
+    if (code.includes('public class') || code.includes('System.out')) return 'Java';
+    if (code.includes('function ') || code.includes('console.log')) return 'JavaScript';
+    if (code.includes('printf') || code.includes('scanf')) return 'C';
   }
+  
+  return 'unknown';
 }
 
-function extractProblemData() {
-  try {
-    // חילוץ שם הבעיה - מספר אפשרויות
-    const titleSelectors = [
-      '[data-cy="question-title"]',
-      'h1',
-      '.css-v3d350',
-      '[data-testid="question-title"]',
-      '.question-title'
-    ];
-    
-    let titleElement = null;
-    for (const selector of titleSelectors) {
-      titleElement = document.querySelector(selector);
-      if (titleElement && titleElement.textContent.trim()) break;
-    }
-    
-    // חילוץ הקוד - מספר אפשרויות
-    const codeSelectors = [
-      '.monaco-editor textarea',
-      'textarea[data-mode-id]',
-      '.CodeMirror-code',
-      '.view-lines',
-      '[data-testid="code-editor"] textarea'
-    ];
-    
-    let codeElement = null;
-    let code = '';
-    
-    for (const selector of codeSelectors) {
-      codeElement = document.querySelector(selector);
-      if (codeElement) {
-        code = codeElement.value || codeElement.textContent;
-        if (code && code.trim()) break;
-      }
-    }
-    
-    // אם לא מצאנו קוד, ננסה לחלץ מ-Monaco Editor
-    if (!code) {
-      const monacoLines = document.querySelectorAll('.view-line');
-      if (monacoLines.length > 0) {
-        code = Array.from(monacoLines).map(line => line.textContent).join('\n');
-      }
-    }
-    
-    // חילוץ שפת התכנות
-    const languageSelectors = [
-      '[data-cy="lang-select"]',
-      '.ant-select-selection-item',
-      '[data-testid="lang-select"]',
-      '.language-selector'
-    ];
-    
-    let languageElement = null;
-    for (const selector of languageSelectors) {
-      languageElement = document.querySelector(selector);
-      if (languageElement && languageElement.textContent.trim()) break;
-    }
-    
-    if (!titleElement || !codeElement) {
-      console.error('לא ניתן לחלץ את פרטי הבעיה');
-      return null;
-    }
-    
-    const title = titleElement.textContent.trim();
-    const code = codeElement.value || codeElement.textContent;
-    const language = languageElement ? languageElement.textContent.trim() : 'unknown';
-    const url = window.location.href;
-    
-    return {
-      title,
-      code,
-      language,
-      url,
-      timestamp: new Date().toISOString()
-    };
-  } catch (error) {
-    console.error('שגיאה בחילוץ נתוני הבעיה:', error);
-    return null;
-  }
-}
-
-// איפוס הסטטוס כשעוברים לבעיה חדשה
+// איפוס כשעוברים לעמוד חדש
 window.addEventListener('beforeunload', () => {
   isSubmissionSuccessful = false;
+  if (uploadButton) {
+    uploadButton.remove();
+    uploadButton = null;
+  }
 });

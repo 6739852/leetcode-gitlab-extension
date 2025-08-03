@@ -1,76 +1,78 @@
-// מאזין להודעות מ-content script
+const FILE_EXTENSIONS = {
+  'python': '.py', 'python3': '.py', 'py': '.py',
+  'java': '.java',
+  'javascript': '.js', 'js': '.js',
+  'c++': '.cpp', 'cpp': '.cpp',
+  'c': '.c',
+  'c#': '.cs', 'csharp': '.cs',
+  'go': '.go', 'golang': '.go',
+  'rust': '.rs',
+  'ruby': '.rb',
+  'php': '.php',
+  'swift': '.swift',
+  'kotlin': '.kt',
+  'scala': '.scala'
+};
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'uploadToGitlab') {
-    uploadToGitlab(request.data);
+  if (request.action === 'uploadToGithub') {
+    handleUpload(request.data)
+      .then(success => sendResponse({ success }))
+      .catch(() => sendResponse({ success: false }));
+    return true;
   }
 });
 
-async function uploadToGitlab(problemData) {
+async function handleUpload(problemData) {
   try {
-    // קבלת הגדרות מהאחסון
-    const settings = await chrome.storage.sync.get(['gitlabToken', 'gitlabProjectId', 'gitlabUrl']);
+    const settings = await chrome.storage.sync.get(['githubToken', 'githubRepo', 'githubOwner']);
     
-    if (!settings.gitlabToken || !settings.gitlabProjectId) {
-      console.error('חסרות הגדרות GitLab');
-      showNotification('שגיאה', 'אנא הגדר את פרטי GitLab בהגדרות התוסף');
-      return;
+    if (!settings.githubToken || !settings.githubRepo || !settings.githubOwner) {
+      showNotification('Error', 'Please configure GitHub settings');
+      return false;
     }
     
-    // יצירת שם קובץ
     const fileName = createFileName(problemData);
     const fileContent = createFileContent(problemData);
     
-    // העלאה ל-GitLab
-    const success = await uploadFile(settings, fileName, fileContent, problemData);
+    const success = await uploadToGithub(settings, fileName, fileContent, problemData);
     
     if (success) {
-      showNotification('הצלחה!', `הבעיה "${problemData.title}" הועלתה ל-GitLab`);
+      showNotification('Success!', `"${problemData.title}" uploaded to GitHub`);
+      return true;
     } else {
-      showNotification('שגיאה', 'נכשל בהעלאה ל-GitLab');
+      showNotification('Failed', 'Could not upload to GitHub');
+      return false;
     }
     
   } catch (error) {
-    console.error('שגיאה בהעלאה:', error);
-    showNotification('שגיאה', 'שגיאה בהעלאה ל-GitLab');
+    showNotification('Error', 'Upload failed');
+    return false;
   }
 }
 
 function createFileName(problemData) {
-  // ניקוי שם הבעיה לשם קובץ תקין
   const cleanTitle = problemData.title
     .replace(/[^\w\s-]/g, '')
     .replace(/\s+/g, '-')
     .toLowerCase();
   
-  // קביעת סיומת לפי שפה
-  const extensions = {
-    'python': '.py',
-    'python3': '.py',
-    'java': '.java',
-    'javascript': '.js',
-    'typescript': '.ts',
-    'c++': '.cpp',
-    'c': '.c',
-    'c#': '.cs',
-    'go': '.go',
-    'rust': '.rs',
-    'ruby': '.rb',
-    'php': '.php',
-    'swift': '.swift',
-    'kotlin': '.kt',
-    'scala': '.scala'
-  };
-  
-  const extension = extensions[problemData.language.toLowerCase()] || '.txt';
-  return `${cleanTitle}${extension}`;
+  const extension = FILE_EXTENSIONS[problemData.language.toLowerCase()] || '.txt';
+  return cleanTitle + extension;
 }
 
 function createFileContent(problemData) {
-  const header = `/*
- * בעיה: ${problemData.title}
- * קישור: ${problemData.url}
- * שפה: ${problemData.language}
- * תאריך פתרון: ${new Date(problemData.timestamp).toLocaleDateString('he-IL')}
+  const date = new Date(problemData.timestamp);
+  const dateStr = date.toLocaleDateString('en-US');
+  const timeStr = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  
+  const header = `/**
+ * LeetCode Problem: ${problemData.title}
+ * Language: ${problemData.language}
+ * Date: ${dateStr} at ${timeStr}
+ * URL: ${problemData.url}
+ * 
+ * Solution:
  */
 
 `;
@@ -78,37 +80,60 @@ function createFileContent(problemData) {
   return header + problemData.code;
 }
 
-async function uploadFile(settings, fileName, content, problemData) {
+async function uploadToGithub(settings, fileName, content, problemData) {
   try {
-    const gitlabUrl = settings.gitlabUrl || 'https://gitlab.com';
-    const apiUrl = `${gitlabUrl}/api/v4/projects/${settings.gitlabProjectId}/repository/files/${encodeURIComponent(fileName)}`;
+    const apiUrl = `https://api.github.com/repos/${settings.githubOwner}/${settings.githubRepo}/contents/${fileName}`;
+    
+    // בדיקה אם הקובץ קיים
+    let sha = null;
+    try {
+      const checkResponse = await fetch(apiUrl, {
+        headers: { 'Authorization': `token ${settings.githubToken}` }
+      });
+      if (checkResponse.ok) {
+        const data = await checkResponse.json();
+        sha = data.sha;
+      }
+    } catch (e) {
+      // הקובץ לא קיים
+    }
+    
+    const body = {
+      message: `Add LeetCode solution: ${problemData.title}`,
+      content: btoa(unescape(encodeURIComponent(content))),
+      branch: 'main'
+    };
+    
+    if (sha) {
+      body.sha = sha;
+      body.message = `Update LeetCode solution: ${problemData.title}`;
+    }
     
     const response = await fetch(apiUrl, {
-      method: 'POST',
+      method: 'PUT',
       headers: {
-        'PRIVATE-TOKEN': settings.gitlabToken,
+        'Authorization': `token ${settings.githubToken}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        branch: 'main',
-        content: content,
-        commit_message: `Add LeetCode solution: ${problemData.title}`,
-        encoding: 'text'
-      })
+      body: JSON.stringify(body)
     });
     
     return response.ok;
+    
   } catch (error) {
-    console.error('שגיאה ב-API של GitLab:', error);
     return false;
   }
 }
 
 function showNotification(title, message) {
-  chrome.notifications.create({
-    type: 'basic',
-    iconUrl: 'icon.png',
-    title: title,
-    message: message
-  });
+  try {
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+      title: title,
+      message: message
+    });
+  } catch (error) {
+    // אם notifications לא עובד
+  }
 }
