@@ -198,24 +198,65 @@ function extractCode() {
 }
 
 function extractLanguage() {
-  // מהממשק
+  console.log('Extracting language...');
+  
+  // שיטה 1: מהממשק - יותר אפשרויות
   const langSelectors = [
     '.ant-select-selection-item',
     '[data-cy="lang-select"] .ant-select-selection-item',
-    '.language-selector'
+    '.language-selector',
+    '[class*="lang"] [class*="item"]',
+    '[aria-label*="language"]'
   ];
   
   for (const selector of langSelectors) {
-    const element = document.querySelector(selector);
-    if (element && element.textContent) {
-      const lang = element.textContent.trim();
-      if (lang && lang.length < 20) {
-        console.log('Language from UI:', lang);
-        return lang;
+    const elements = document.querySelectorAll(selector);
+    for (const element of elements) {
+      const lang = element.textContent || element.innerText || '';
+      if (lang && lang.trim() && lang.length < 20 && !lang.includes('Select')) {
+        console.log('Language from UI selector:', selector, '=', lang.trim());
+        return lang.trim();
       }
     }
   }
   
+  // שיטה 2: חיפוש בכל העמוד אחר שמות שפות
+  const pageText = document.body.textContent || '';
+  const languages = ['Python3', 'Python', 'Java', 'C++', 'JavaScript', 'C#', 'Go', 'Rust', 'Ruby', 'Swift', 'Kotlin', 'Scala', 'TypeScript'];
+  
+  for (const lang of languages) {
+    if (pageText.includes(lang)) {
+      console.log('Language from page text:', lang);
+      return lang;
+    }
+  }
+  
+  // שיטה 3: זיהוי מהקוד עצמו
+  const code = extractCode();
+  if (code) {
+    if (code.includes('#include') || code.includes('std::') || code.includes('cout')) {
+      console.log('Language detected from code: C++');
+      return 'C++';
+    }
+    if (code.includes('def ') || code.includes('import ') || code.includes('print(')) {
+      console.log('Language detected from code: Python');
+      return 'Python';
+    }
+    if (code.includes('public class') || code.includes('System.out')) {
+      console.log('Language detected from code: Java');
+      return 'Java';
+    }
+    if (code.includes('function ') || code.includes('console.log') || code.includes('const ')) {
+      console.log('Language detected from code: JavaScript');
+      return 'JavaScript';
+    }
+    if (code.includes('printf') || code.includes('scanf')) {
+      console.log('Language detected from code: C');
+      return 'C';
+    }
+  }
+  
+  console.log('Language detection failed, using unknown');
   return 'unknown';
 }
 
